@@ -1,0 +1,22 @@
+# unwanted folders
+.playwright-mcp/
+.sisyphus/
+
+# dependencies
+client/node_modules/
+server/node_modules/
+
+# build files
+client/dist/
+
+# environment files
+server/.env
+
+# logs
+*.log
+
+# vscode
+.vscode/
+
+# system files
+.DS_Store
