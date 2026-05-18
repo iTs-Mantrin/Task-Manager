@@ -67,7 +67,7 @@ const terminateSession = asyncHandler(async (req, res) => {
   session.lastActiveAt = new Date();
   await session.save();
 
-  const device = parseDeviceInfo(req);
+  const device = await parseDeviceInfo(req);
   await logActivity(req.user, {
     action: 'session_revoked',
     resourceType: 'user',
@@ -103,7 +103,7 @@ const terminateAllOtherSessions = asyncHandler(async (req, res) => {
 
   const result = await Session.updateMany(filter, { isActive: false, lastActiveAt: new Date() });
 
-  const device = parseDeviceInfo(req);
+  const device = await parseDeviceInfo(req);
   await logActivity(req.user, {
     action: 'session_revoked',
     resourceType: 'user',

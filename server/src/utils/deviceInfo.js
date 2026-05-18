@@ -1,8 +1,8 @@
 /**
  * Extract device information from an Express request.
- * @returns {{ ipAddress: string, deviceName: string, deviceType: string, location: string, userAgent: string }}
+ * @returns {Promise<{ ipAddress: string, deviceName: string, deviceType: string, location: string, userAgent: string }>}
  */
-function parseDeviceInfo(req) {
+async function parseDeviceInfo(req) {
   const userAgent = (req.headers['user-agent'] || '').slice(0, 500);
   const ipAddress = getClientIp(req);
 
@@ -25,18 +25,7 @@ function parseDeviceInfo(req) {
     deviceName = os ? `${browser} on ${os}` : browser;
   }
 
-  let location = '';
-  try {
-    const geo = lookupGeo(ipAddress);
-    if (geo) {
-      const parts = [];
-      if (geo.city) parts.push(geo.city);
-      if (geo.country) parts.push(geo.country);
-      location = parts.join(', ');
-    }
-  } catch {
-    // geoip lookup is best-effort
-  }
+  const location = await lookupLocation(ipAddress);
 
   return { ipAddress, deviceName, deviceType, location, userAgent };
 }
@@ -73,17 +62,46 @@ function isPrivate172(ip) {
   return second >= 16 && second <= 31;
 }
 
-function lookupGeo(ip) {
-  if (!ip || ip === '127.0.0.1' || ip === '::1' || ip === 'localhost' || ip.startsWith('192.168.') || ip.startsWith('10.') || isPrivate172(ip)) {
-    return null;
-  }
-
+async function lookupOnline(ip) {
   try {
-    const geoip = require('geoip-lite');
-    return geoip.lookup(ip);
+    const res = await fetch(`http://ip-api.com/json/${ip}`, { signal: AbortSignal.timeout(3000) });
+    if (!res.ok) return null;
+    const data = await res.json();
+    if (data.status !== 'success') return null;
+    const parts = [];
+    if (data.city) parts.push(data.city);
+    if (data.countryCode) parts.push(data.countryCode);
+    return parts.join(', ') || null;
   } catch {
     return null;
   }
+}
+
+function lookupOffline(ip) {
+  if (!ip || ip === '127.0.0.1' || ip === '::1' || ip === 'localhost' || ip.startsWith('192.168.') || ip.startsWith('10.') || isPrivate172(ip)) {
+    return null;
+  }
+  try {
+    const geoip = require('geoip-lite');
+    const geo = geoip.lookup(ip);
+    if (!geo) return null;
+    const parts = [];
+    if (geo.city) parts.push(geo.city);
+    if (geo.country) parts.push(geo.country);
+    return parts.join(', ') || null;
+  } catch {
+    return null;
+  }
+}
+
+async function lookupLocation(ip) {
+  if (!ip || ip === '127.0.0.1' || ip === '::1' || ip === 'localhost' || ip.startsWith('192.168.') || ip.startsWith('10.') || isPrivate172(ip)) {
+    return '';
+  }
+  // Try online API first for real-time accuracy, fall back to offline database
+  const online = await lookupOnline(ip);
+  if (online) return online;
+  return lookupOffline(ip) || '';
 }
 
 module.exports = { parseDeviceInfo };

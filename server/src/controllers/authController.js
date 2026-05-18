@@ -28,7 +28,7 @@ const signup = asyncHandler(async (req, res) => {
   }
 
   const user = await User.create({ name, email, password, role: role || 'Member' });
-  const device = parseDeviceInfo(req);
+  const device = await parseDeviceInfo(req);
 
   const tokenIdentifier = crypto.randomUUID();
   await Session.create({
@@ -64,7 +64,7 @@ const login = asyncHandler(async (req, res) => {
     throw new AppError('Invalid email or password', 401);
   }
 
-  const device = parseDeviceInfo(req);
+  const device = await parseDeviceInfo(req);
 
   const tokenIdentifier = crypto.randomUUID();
   await Session.create({
@@ -93,7 +93,7 @@ const login = asyncHandler(async (req, res) => {
 });
 
 const logout = asyncHandler(async (req, res) => {
-  const device = parseDeviceInfo(req);
+  const device = await parseDeviceInfo(req);
   const header = req.headers.authorization;
   const token = header && header.startsWith('Bearer ') ? header.slice(7) : null;
 
